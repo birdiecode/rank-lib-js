@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    name: Test and package browser bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build and test
+        run: npm run check
+      - name: Check committed bundles are reproducible
+        run: git diff --exit-code -- dist/rank-lib.js dist/rank-lib.cjs
+      - name: Upload browser bundle and HTML demo
+        uses: actions/upload-artifact@v4
+        with:
+          name: rank-lib-js-browser
+          path: |
+            dist/rank-lib.js
+            demo/index.html
+          if-no-files-found: error
+          retention-days: 30

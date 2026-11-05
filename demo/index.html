@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Маски строк — подсчёт и генерация по индексу</title>
+  <style>
+    :root { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: #e7edf8; background: #0b1220; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    .wrap { max-width: 1080px; margin: auto; padding: 40px 20px 70px; }
+    .eyebrow { color:#9eb7ff; text-transform: uppercase; letter-spacing:.13em; font-size: 12px; font-weight: 700; }
+    h1 { margin: 10px 0 8px; font-size: clamp(29px, 4.8vw, 43px); letter-spacing: -.035em; }
+    h2 { font-size: 18px; margin: 0 0 18px; }
+    p { color: #aab9d2; line-height: 1.55; }
+    .lead { max-width: 700px; margin-bottom: 28px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr); gap: 18px; align-items: start; }
+    .card { background:#141f31; border: 1px solid #2a3951; border-radius:16px; padding: 24px; min-width: 0; }
+    .field { margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 650; color: #cad7eb; margin-bottom: 9px; }
+    input, textarea { width: 100%; padding: 13px 14px; font: 15px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; color: #f2f7ff; background:#0b1423; border: 1px solid #40516d; border-radius: 9px; outline: none; }
+    input:focus, textarea:focus { border-color:#81aaff; box-shadow:0 0 0 3px #4a84e426; }
+    textarea { resize: vertical; min-height: 95px; }
+    .hint { margin-top: 6px; font-size: 12px; color:#8ea1be; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button { padding: 11px 15px; border-radius: 9px; border: 1px solid #4a607e; background: #202f46; color: #e9f1ff; cursor:pointer; font-weight:650; font-size: 13px; }
+    button.primary { background:#6c94f8; border-color:#6c94f8; color:#071326; }
+    button:hover { filter:brightness(1.14); }
+    button:disabled { opacity:.35; cursor:not-allowed; filter:none; }
+    .stat { margin: 18px 0 0; background:#101a29; border:1px solid #31435e; padding:17px; border-radius: 11px; }
+    .small-label { color:#9dacbf; font-size:12px; margin-bottom:8px; }
+    .number { font-size: clamp(18px, 3vw, 26px); font-weight:750; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+    .result { font-size: 19px; min-height:26px; font: 700 19px/1.4 ui-monospace, Consolas, monospace; color: #a3e7ca; overflow-wrap:anywhere; white-space: pre-wrap; }
+    .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .error { background:#3b2027; border:1px solid #925061; padding:12px 14px; margin-top:15px; color:#ffd2d9; border-radius:10px; display:none; }
+    .success { color:#8fcaaa; font-size:12px; margin-top:8px; }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; }
+    .chip { font: 12px ui-monospace, Consolas, monospace; padding:8px 10px; }
+    .cheatsheet { display:grid; grid-template-columns: 70px 1fr; gap:10px 13px; font-size:13px; align-items:start; }
+    .cheatsheet code, .note code { font: 13px ui-monospace, Consolas, monospace; background:#253751; color:#d2e3ff; padding:2px 5px; border-radius:4px; overflow-wrap:anywhere; }
+    .cheatsheet span { color:#b2c0d5; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { padding:11px 12px; text-align:left; border-bottom:1px solid #2b3a50; }
+    th { color:#a8bad4; font-weight:600; }
+    td:first-child { width: 140px; font: 13px ui-monospace, Consolas, monospace; color:#aebefb; }
+    td:last-child { font: 14px ui-monospace, Consolas, monospace; overflow-wrap:anywhere; }
+    .footer-card { margin-top:18px; }
+    .note { font-size:13px; }
+    .info { color:#9cadc5; font-size:12px; margin-top:12px; line-height:1.6; }
+    .rule { width:100%; height:1px; background:#2c3d56; margin:20px 0; }
+    @media(max-width:800px) { .layout{grid-template-columns:1fr;} .wrap{padding:24px 14px 50px;} .card{padding:18px;} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="eyebrow">rank-lib-js · браузерная демонстрация</div>
+    <h1>Маска → количество → строка</h1>
+    <p class="lead">Подсчёт уникальных строк и получение любой строки по индексу, без перебора предшествующих вариантов. Поддерживаются фиксированные части, наборы символов и диапазоны длины.</p>
+    <div class="layout">
+      <section class="card">
+        <h2>Настройки маски</h2>
+        <div class="field">
+          <label for="mask">Маска</label>
+          <input id="mask" spellcheck="false" autocomplete="off" value="ABC?d{5,7}">
+          <div class="hint">Например: <code>?l{8,10}</code>, <code>[abc]{1,3}</code> или <code>?1{2}?d{3}</code>.</div>
+        </div>
+        <div class="field">
+          <label for="custom">Пользовательские наборы (по одному на строку)</label>
+          <textarea id="custom" spellcheck="false" placeholder="1=abcdef&#10;2=012345">1=abcdef
+2=012345</textarea>
+          <div class="hint">Определение <code>1=abcdef</code> используется в маске как <code>?1</code>.</div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="calculate">Рассчитать</button>
+          <button id="example1" class="chip">?d{8,10}</button>
+          <button id="example2" class="chip">[ab]{1,3}</button>
+          <button id="example3" class="chip">[a]{0,1}[a]{0,1}</button>
+        </div>
+        <div class="error" id="error" role="alert"></div>
+        <div class="stat" aria-live="polite">
+          <div class="small-label">Уникальных комбинаций</div>
+          <div class="number" id="count">—</div>
+          <div class="info" id="lengths">Длина: —</div>
+        </div>
+        <div class="rule"></div>
+        <h2>Получение по индексу</h2>
+        <div class="field">
+          <label for="index">Индекс (начинается с 0, поддерживает BigInt)</label>
+          <input id="index" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" value="0">
+          <div class="hint" id="indexHint">Максимальный индекс: —</div>
+        </div>
+        <div class="actions">
+          <button id="prev">← Предыдущий</button>
+          <button class="primary" id="go">Получить строку</button>
+          <button id="next">Следующий →</button>
+          <button id="last">Последний</button>
+        </div>
+        <div class="stat">
+          <div class="small-label">Результат</div>
+          <div class="result" id="result">—</div>
+          <div class="success" id="resultInfo"></div>
+        </div>
+      </section>
+      <aside class="card">
+        <h2>Синтаксис</h2>
+        <div class="cheatsheet">
+          <code>abc</code><span>Фиксированные символы</span>
+          <code>?l</code><span>Строчные латинские a–z</span>
+          <code>?u</code><span>Заглавные латинские A–Z</span>
+          <code>?d</code><span>Цифры 0–9</span>
+          <code>?s</code><span>ASCII-спецсимволы, включая пробел (33)</span>
+          <code>?a</code><span>Печатные ASCII, включая пробел (95)</span>
+          <code>?h</code><span>0–9 и a–f</span>
+          <code>?H</code><span>0–9 и A–F</span>
+          <code>?1</code><span>Свой набор № 1 (аналогично ?2–?9)</span>
+          <code>[abc]</code><span>Один символ: a, b или c</span>
+          <code>[a-z0-9]</code><span>Диапазоны символов</span>
+          <code>{3}</code><span>Ровно три повторения предыдущей позиции</span>
+          <code>{2,4}</code><span>От 2 до 4 повторений</span>
+          <code>{0,1}</code><span>Позиция необязательна</span>
+          <code>??</code><span>Литеральный знак вопроса</span>
+          <code>\[</code><span>Литеральная открывающая скобка</span>
+        </div>
+        <div class="rule"></div>
+        <p class="note">Перебор упорядочен сначала <strong>по длине</strong>, затем по порядку символов в наборах. Совпадения строк от разных вариантов маски автоматически устраняются.</p>
+        <p class="note">Длина считается в <strong>Unicode-кодовых точках</strong>, а не в байтах UTF-8. Группы вида <code>(?d?l){2}</code> не поддерживаются.</p>
+        <p class="note">Для защиты страницы суммарная максимальная длина ограничена 128 символами, а сложность вычислений — установленными лимитами.</p>
+      </aside>
+    </div>
+    <section class="card footer-card">
+      <h2>Ближайшие варианты</h2>
+      <div class="table-wrap">
+        <table aria-label="Комбинации">
+          <thead><tr><th>Индекс</th><th>Строка</th></tr></thead>
+          <tbody id="preview"><tr><td>—</td><td>Нажмите «Рассчитать»</td></tr></tbody>
+        </table>
+      </div>
+      <div class="info">В таблице показано до 11 вариантов, начиная с выбранного индекса. Все вычисления выполняются локально в браузере кодом из dist/rank-lib.js.</div>
+    </section>
+  </main>
+  <!-- Browser bundle generated from the Node.js library by npm run build. -->
+  <script src="../dist/rank-lib.js"></script>
+  <script>
+    "use strict";
+    const { compileMask, count, generate } = window.RankLib;
+    // Интерфейс: компиляция сохраняется между соседними запросами.
+    const $ = id => document.getElementById(id);
+    let compiled = null;
+    let compiledInputs = null;
+    function parseCustom(text) {
+      const sets = {};
+      const lines = text.split(/\r?\n/);
+      lines.forEach((line, idx) => {
+        if (!line.trim() || line.trimStart().startsWith("#")) return;
+        const equal = line.indexOf("=");
+        if (equal === -1) throw new Error("Строка " + (idx+1) + ": ожидается 1=abcdef");
+        const name = line.slice(0, equal).trim();
+        const value = line.slice(equal + 1);
+        if (!/^[1-9]$/.test(name)) throw new Error("Разрешены только пользовательские наборы 1–9");
+        if (!value) throw new Error("Набор ?" + name + " пуст");
+        sets[name] = value;
+      });
+      return sets;
+    }
+    function setError(message = "") {
+      $("error").textContent = message;
+      $("error").style.display = message ? "block" : "none";
+    }
+    function formatted(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+    function readIndex() {
+      const value = $("index").value.trim();
+      if (!/^\d+$/.test(value)) throw new Error("Индекс должен быть целым неотрицательным числом");
+      return BigInt(value);
+    }
+    function validCompiled() {
+      const inputs = $("mask").value + "\u0000" + $("custom").value;
+      if (!compiled || compiledInputs !== inputs) {
+        compiled = compileMask($("mask").value, parseCustom($("custom").value));
+        compiledInputs = inputs;
+      }
+      $("count").textContent = formatted(compiled.total);
+      $("lengths").textContent = "Длина результата: " + compiled.minLength +
+        (compiled.minLength === compiled.maxLength ? "" : "–" + compiled.maxLength) +
+        " символов (Unicode)";
+      $("indexHint").textContent = "Максимальный индекс: " + formatted(compiled.total - 1n);
+      return compiled;
+    }
+    function render() {
+      try {
+        setError();
+        const model = validCompiled();
+        const index = readIndex();
+        if (index >= model.total) throw new RangeError("Индекс больше максимального: " + (model.total - 1n));
+        const result = model.at(index);
+        $("result").textContent = result || "(пустая строка)";
+        $("resultInfo").textContent = "Индекс " + formatted(index) + " · длина " + [...result].length;
+        const rows = [];
+        const limit = model.total - index < 11n ? Number(model.total - index) : 11;
+        for (let k = 0; k < limit; k++) {
+          const idx = index + BigInt(k);
+          rows.push([idx.toString(), model.at(idx)]);
+        }
+        const preview = $("preview");
+        preview.replaceChildren();
+        for (const [idx, value] of rows) {
+          const tr = document.createElement("tr");
+          for (const cell of [idx, value === "" ? "(пустая строка)" : value]) {
+            const td = document.createElement("td");
+            td.textContent = cell;
+            tr.appendChild(td);
+          }
+          preview.appendChild(tr);
+        }
+        $("prev").disabled = index === 0n;
+        $("next").disabled = index + 1n >= model.total;
+        $("last").disabled = model.total === 0n;
+      } catch(e) {
+        setError(e.message || String(e));
+        $("result").textContent = "—";
+        $("resultInfo").textContent = "";
+        $("preview").replaceChildren();
+        $("prev").disabled = true;
+        $("next").disabled = true;
+      }
+    }
+    $("calculate").addEventListener("click", () => { $("index").value = "0"; render(); });
+    $("go").addEventListener("click", render);
+    $("index").addEventListener("keydown", e => { if(e.key === "Enter") render(); });
+    $("mask").addEventListener("keydown", e => { if(e.key === "Enter") render(); });
+    $("prev").addEventListener("click", () => {
+      try { $("index").value = (readIndex() - 1n).toString(); render(); } catch(e) {setError(e.message);} 
+    });
+    $("next").addEventListener("click", () => {
+      try { $("index").value = (readIndex() + 1n).toString(); render(); } catch(e) {setError(e.message);} 
+    });
+    $("last").addEventListener("click", () => {
+      try { $("index").value = (validCompiled().total - 1n).toString(); render(); } catch(e) {setError(e.message);} 
+    });
+    $("example1").addEventListener("click", () => { $("mask").value = "?d{8,10}"; $("index").value="0"; render(); });
+    $("example2").addEventListener("click", () => { $("mask").value = "[ab]{1,3}"; $("index").value="0"; render(); });
+    $("example3").addEventListener("click", () => { $("mask").value = "[a]{0,1}[a]{0,1}"; $("index").value="0"; render(); });
+    render();
+  </script>
+</body>
+</html>
